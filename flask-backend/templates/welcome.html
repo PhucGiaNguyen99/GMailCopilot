@@ -1,0 +1,25 @@
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Welcome to Email Organizer</title>
+</head>
+
+<body>
+    <h1>Welcome to Amazing Email Organizer!</h1>
+    <p>Below are some of your recent emails:</p>
+
+    <ul>
+        {% for email in emails %}
+        <li>
+            <strong>Subject:</strong> {{ email.subject }}<br>
+            <strong>Sender:</strong> {{ email.sender }}<br>
+            <strong>Snippet:</strong> {{ email.snippet }}<br>
+            <hr>
+        </li>
+        {% endfor %}
+    </ul>
+</body>
+
+</html>
