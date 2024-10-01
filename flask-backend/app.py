@@ -1,6 +1,7 @@
 from flask import Flask, redirect, session, render_template, url_for
 from google_auth_oauthlib.flow import InstalledAppFlow
 import os
+from dotenv import load_dotenv
 import googleapiclient.discovery
 from flask_sqlalchemy import SQLAlchemy
 from config import SQLALCHEMY_DATABASE_URI
@@ -10,8 +11,35 @@ from google.auth.transport.requests import Request
 app = Flask(__name__)
 app.secret_key = os.urandom(24)  # Secret key for session management
 
+
+# Load environment variables from .env file
+load_dotenv()
+
+CLIENT_ID = os.getenv("CLIENT_ID")
+CLIENT_SECRET = os.getenv("CLIENT_SECRET")
+
 # Define the scope to access Gmail
 SCOPES = ["https://www.googleapis.com/auth/gmail.readonly"]
+
+# Configurate the PostgreSQL database URI
+app.config["SQLALCHEMY_DATABASE_URI"] = (
+    "postgresql://postgres:610199@localhost/email_organizer"
+)
+app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+
+# Initialize the SQLAlchemy object
+db = SQLAlchemy(app)
+
+
+# Define a simple test route to verify database connection
+@app.route("/test-connection")
+def test_connection():
+    try:
+        # Use SQLAlchemy's engine to connect and fetch table names
+        tables = db.engine.table_names()
+        return f"Connected to the database successfully! Available tables: {tables}"
+    except Exception as e:
+        return f"Failed to connect to the database: {str(e)}"
 
 
 # Index route: Checks if the user is authenticated
@@ -115,4 +143,6 @@ def creds_to_dict(creds):
 
 # Run the Flask app
 if __name__ == "__main__":
+    with app.app_context():
+        db.create_all()  # Create tables if they don't exist
     app.run(debug=True, port=7000, use_reloader=False)
