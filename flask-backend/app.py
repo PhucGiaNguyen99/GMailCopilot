@@ -7,6 +7,7 @@ from flask_sqlalchemy import SQLAlchemy
 from config import SQLALCHEMY_DATABASE_URI
 from google.oauth2.credentials import Credentials
 from google.auth.transport.requests import Request
+from models.email_model import db, Email
 
 app = Flask(__name__)
 app.secret_key = os.urandom(24)  # Secret key for session management
@@ -28,7 +29,7 @@ app.config["SQLALCHEMY_DATABASE_URI"] = (
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
 # Initialize the SQLAlchemy object
-db = SQLAlchemy(app)
+db.init_app(app)
 
 
 # Define a simple test route to verify database connection
@@ -73,6 +74,9 @@ def authorize():
         creds = flow.run_local_server(port=7001)  # User authentication
         session["credentials"] = creds_to_dict(creds)
 
+    # Fetch and store emails immediately after authorization
+    store_emails_in_db(creds)
+
     return redirect("/welcome")
 
 
@@ -85,18 +89,14 @@ def reauthorize():
     return redirect("/welcome")
 
 
-@app.route("/welcome")
-def welcome():
-    # Render a simple "Welcome" message
-    # return "Hello, welcome to the app!"
-    # Load the credentials from the session
-    creds = Credentials(**session["credentials"])
-
+# Helper function to store emails
+def store_emails_in_db(creds):
+    """Fetch and store emails in the database."""
     # Initialize the Gmail API client
     service = googleapiclient.discovery.build("gmail", "v1", credentials=creds)
 
     # Call the Gmail API to get the list of messages
-    results = service.users().messages().list(userId="me", maxResults=10).execute()
+    results = service.users().messages().list(userId="me", maxResults=20).execute()
     messages = results.get("messages", [])
 
     # Fetch details for each message
@@ -114,19 +114,33 @@ def welcome():
                 subject = header["value"]
             elif header["name"] == "From":
                 sender = header["value"]
+            else:
+                print(f"Unrecognized header: {header['name']} -> {header['value']}")
 
-        # Store extracted email data
-        email_data.append(
-            {
-                "id": msg["id"],
-                "snippet": msg_details["snippet"],
-                "subject": subject,
-                "sender": sender,
-            }
-        )
+        # Check if email already exists in the database by id
+        if not Email.query.filter_by(id=msg["id"]).first():
+            # Create and save email entry in the database only if it doesn't exist
+            email = Email(
+                id=msg["id"],
+                subject=subject,
+                sender=sender,
+                snippet=msg_details["snippet"],
+                category="Inbox",  # You can update the category field based on your logic
+            )
+            db.session.add(email)
+
+    db.session.commit()
+
+
+@app.route("/welcome")
+def welcome():
+    # Retrieve all stored emails from the database
+    emails = Email.query.all()
+
+    # Pass the emails to the template to display
 
     # Display the email metadata
-    return render_template("welcome.html", emails=email_data)
+    return render_template("welcome.html", emails=emails)
 
 
 # Convert credentials to a dictionary for session storage
