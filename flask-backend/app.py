@@ -1,4 +1,4 @@
-from flask import Flask, redirect, session, render_template, url_for
+from flask import Flask, redirect, session, render_template, url_for, request
 from google_auth_oauthlib.flow import InstalledAppFlow
 import os
 from dotenv import load_dotenv
@@ -8,6 +8,9 @@ from config import SQLALCHEMY_DATABASE_URI
 from google.oauth2.credentials import Credentials
 from google.auth.transport.requests import Request
 from models.email_model import db, Email
+from models.task_model import db, Task
+from datetime import timedelta
+
 
 app = Flask(__name__)
 app.secret_key = os.urandom(24)  # Secret key for session management
@@ -153,6 +156,85 @@ def creds_to_dict(creds):
         "client_secret": creds.client_secret,
         "scopes": creds.scopes,
     }
+
+
+# Routes for task management
+
+
+# Route to display all tasks
+@app.route("/tasks")
+def view_tasks():
+    tasks = Task.query.all()
+    return render_template("tasks.html", tasks=tasks)
+
+
+# Route to create a new task
+# Create a new task given title, description, due_date
+@app.route("/tasks/new", methods=["POST"])
+def create_task():
+    if request.method == "POST":
+        title = request.form["title"]
+        description = request.form.get("description")
+        due_date = request.form.get("due_date")
+
+        new_task = Task(title=title, description=description, due_date=due_date)
+
+        db.session.add(new_task)
+        db.session.commit()
+
+        return redirect(url_for("view_tasks"))
+
+    return render_template("create_task.html")
+
+
+# Route to update a task
+@app.route("/tasks/<int:task_id>/edit", methods=["POST", "GET"])
+def edit_task(task_id):
+    # Get the task from given task_id or return 404
+    task = Task.query.get_or_404(task_id)
+    if request.method == "POST":
+        task.title = request.form["title"]
+        task.description = request.form.get("description")
+        task.due_date = request.form.get("due_date")
+        task.completed = "completed" in request.form
+
+        db.session.commit()
+
+        return redirect(url_for("view_tasks"))
+    return render_template("edit_task.html", task=task)
+
+
+# Route to delete a task
+@app.route("tasks/<int:task_id/delete", methods=["POST"])
+def delete_task(task_id):
+    task = Task.query.get_or_404(task_id)
+    db.session.delete(task)
+    db.session.commit()
+    return redirect(url_for("view_tasks"))
+
+
+# Route to add a task to Google Calendar
+@app.route("/tasks/<int:task_id>/add_to_calendar")
+def add_task_to_calendar(task_id):
+    if "credentials" not in session:
+        return redirect(url_for("authorize"))
+
+    task = Task.query.get_or_404(task_id)
+    creds = Credentials(**session["credentials"])
+    service = googleapiclient.discovery.build("calendar", "v3", credentials=creds)
+
+    event = {
+        "summary": task.title,
+        "description": task.description,
+        "start": {"dateTime": task.due_date.isoformat(), "timeZone": "UTC"},
+        "end": {
+            "dateTime": (task.due_date + timedelta(hours=1)).isoformat(),
+            "timeZone": "UTC",
+        },
+    }
+
+    event = service.events().insert(calendarId="primary", body=event).execute()
+    return redirect(url_for("view_tasks"))
 
 
 # Run the Flask app
