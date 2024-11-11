@@ -80,7 +80,7 @@ def authorize():
     return redirect("/welcome")
 
 
-# Optional: Create a separate reauthorize function in case refresh tokens fail
+# Create a separate reauthorize function in case refresh tokens fail
 @app.route("/reauthorize")
 def reauthorize():
     flow = InstalledAppFlow.from_client_secrets_file("credentials.json", SCOPES)
