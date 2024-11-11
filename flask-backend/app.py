@@ -22,6 +22,9 @@ load_dotenv()
 CLIENT_ID = os.getenv("CLIENT_ID")
 CLIENT_SECRET = os.getenv("CLIENT_SECRET")
 
+# Load the Open AI API secret key
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+
 # Define the scope to access Gmail
 SCOPES = ["https://www.googleapis.com/auth/gmail.readonly"]
 
@@ -235,6 +238,9 @@ def add_task_to_calendar(task_id):
 
     event = service.events().insert(calendarId="primary", body=event).execute()
     return redirect(url_for("view_tasks"))
+
+
+
 
 
 # Run the Flask app
