@@ -1,7 +1,8 @@
 # Task model (models/task_model.py)
 from sqlalchemy import Column, Integer, String, DateTime, Boolean, ForeignKey
 from sqlalchemy.orm import relationship
-from .email_model import db
+from flask_sqlalchemy import SQLAlchemy
+from extensions import db
 
 
 class Task(db.Model):

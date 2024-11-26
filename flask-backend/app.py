@@ -4,17 +4,22 @@ import os
 from dotenv import load_dotenv
 import googleapiclient.discovery
 from flask_sqlalchemy import SQLAlchemy
-from config import SQLALCHEMY_DATABASE_URI
+from config import Config
 from google.oauth2.credentials import Credentials
 from google.auth.transport.requests import Request
-from models.email_model import db, Email
-from models.task_model import db, Task
+from models.email_model import Email
+from models.task_model import Task
 from datetime import timedelta
+from extensions import db  # Import db from extensions
+import openai
 
 
 app = Flask(__name__)
 app.secret_key = os.urandom(24)  # Secret key for session management
 
+app.config.from_object(Config)
+
+db.init_app(app)  # Initialize db with the app
 
 # Load environment variables from .env file
 load_dotenv()
@@ -27,12 +32,6 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
 # Define the scope to access Gmail
 SCOPES = ["https://www.googleapis.com/auth/gmail.readonly"]
-
-# Configurate the PostgreSQL database URI
-app.config["SQLALCHEMY_DATABASE_URI"] = (
-    "postgresql://postgres:610199@localhost/email_organizer"
-)
-app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
 # Initialize the SQLAlchemy object
 db.init_app(app)
@@ -240,7 +239,54 @@ def add_task_to_calendar(task_id):
     return redirect(url_for("view_tasks"))
 
 
+def analyze_email_with_openai(email):
+    """
+    Use OpenAI API to determine if an email contains an actionable task and generate a task description.
+    """
+    messages = [
+        {
+            "role": "system",
+            "content": "You are an assistant that analyzes emails to identify actionable tasks.",
+        },
+        {
+            "role": "user",
+            "content": f"""
+            Analyze the following email and determine if it contains an actionable task. If it does, generate a concise task description. Ignore promotional or advertising emails.
 
+            Email Subject: {email.subject}
+            From: {email.sender}
+            Body: {email.body}
+
+            Respond with either:
+            - "Task: " followed by the task description if it's actionable.
+            - "Ignore" if it's not actionable.
+        """,
+        },
+    ]
+
+    response = openai.ChatCompletion.create(
+        model="gpt-3.5-turbo",
+        messages=messages,
+        max_tokens=100,
+        temperature=0.5,
+    )
+
+    result = response.choices[0].message["content"].strip()
+
+    if result.startswith("Task:"):
+        task_description = result.replace("Task: ", "")
+
+        # Create a new task and add it to the database
+        new_task = Task(
+            title=email.subject,
+            description=task_description,
+            due_date=None,  # Later: Check and keep track the due date of the task
+        )
+
+        db.session.add(new_task)
+        db.session.commit()
+
+        return new_task
 
 
 # Run the Flask app

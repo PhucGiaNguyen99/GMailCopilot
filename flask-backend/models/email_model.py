@@ -1,7 +1,5 @@
 from flask_sqlalchemy import SQLAlchemy
-
-# Initialize the SQLAlchemy object
-db = SQLAlchemy()
+from extensions import db
 
 
 class Email(db.Model):
