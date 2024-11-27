@@ -11,15 +11,14 @@ from models.email_model import Email
 from models.task_model import Task
 from datetime import timedelta
 from extensions import db  # Import db from extensions
-import openai
-
+from routes.auth_routes import auth_bp  # Import the Blueprint
 
 app = Flask(__name__)
 app.secret_key = os.urandom(24)  # Secret key for session management
 
 app.config.from_object(Config)
 
-db.init_app(app)  # Initialize db with the app
+# db.init_app(app)  # Initialize db with the app
 
 # Load environment variables from .env file
 load_dotenv()
@@ -36,6 +35,15 @@ SCOPES = ["https://www.googleapis.com/auth/gmail.readonly"]
 # Initialize the SQLAlchemy object
 db.init_app(app)
 
+# Register the Blueprint
+app.register_blueprint(auth_bp, url_prefix="/auth")
+
+# Index route: Checks if the user is authenticated
+@app.route("/")
+def index():
+    if "credentials" not in session:
+        return redirect(url_for("auth.authorize"))
+    return redirect(url_for("welcome"))
 
 # Define a simple test route to verify database connection
 @app.route("/test-connection")
@@ -48,106 +56,6 @@ def test_connection():
         return f"Failed to connect to the database: {str(e)}"
 
 
-# Index route: Checks if the user is authenticated
-@app.route("/")
-def index():
-    if "credentials" not in session:
-        return redirect(url_for("authorize"))
-    return redirect(url_for("welcome"))
-
-
-# Authorization route: Redirects the user to Google to authenticate
-@app.route("/authorize")
-def authorize():
-    # Check if credentials are already stored in the session
-    if "credentials" in session:
-        creds = Credentials(**session["credentials"])
-
-        # If credentials have expired, refresh them
-        if not creds.valid:
-            if creds.expired and creds.refresh_token:
-                creds.refresh(Request())
-            else:
-                # If there are no valid credentials, reauthorize
-                return redirect(url_for("reauthorize"))
-
-        # Update the session with refreshed credentials
-        session["credentials"] = creds_to_dict(creds)
-    else:
-        # If no credentials in session, initiate new authorization flow
-        flow = InstalledAppFlow.from_client_secrets_file("credentials.json", SCOPES)
-        creds = flow.run_local_server(port=7001)  # User authentication
-        session["credentials"] = creds_to_dict(creds)
-
-    # Fetch and store emails immediately after authorization
-    store_emails_in_db(creds)
-
-    return redirect("/welcome")
-
-
-# Create a separate reauthorize function in case refresh tokens fail
-@app.route("/reauthorize")
-def reauthorize():
-    flow = InstalledAppFlow.from_client_secrets_file("credentials.json", SCOPES)
-    creds = flow.run_local_server(port=7001)  # Run local server for user authentication
-    session["credentials"] = creds_to_dict(creds)
-    return redirect("/welcome")
-
-
-# Helper function to store emails
-def store_emails_in_db(creds):
-    """Fetch and store emails in the database."""
-    # Initialize the Gmail API client
-    service = googleapiclient.discovery.build("gmail", "v1", credentials=creds)
-
-    # Call the Gmail API to get the list of messages
-    results = service.users().messages().list(userId="me", maxResults=20).execute()
-    messages = results.get("messages", [])
-
-    # Fetch details for each message
-    email_data = []
-    for msg in messages:
-        msg_details = (
-            service.users().messages().get(userId="me", id=msg["id"]).execute()
-        )
-
-        # Extract the subject and sender fields
-        subject = ""
-        sender = ""
-        for header in msg_details["payload"]["headers"]:
-            if header["name"] == "Subject":
-                subject = header["value"]
-            elif header["name"] == "From":
-                sender = header["value"]
-            else:
-                print(f"Unrecognized header: {header['name']} -> {header['value']}")
-
-        # Check if email already exists in the database by id
-        if not Email.query.filter_by(id=msg["id"]).first():
-            # Create and save email entry in the database only if it doesn't exist
-            email = Email(
-                id=msg["id"],
-                subject=subject,
-                sender=sender,
-                snippet=msg_details["snippet"],
-                category="Inbox",  # You can update the category field based on your logic
-            )
-            db.session.add(email)
-
-    db.session.commit()
-
-
-@app.route("/welcome")
-def welcome():
-    # Retrieve all stored emails from the database
-    emails = Email.query.all()
-
-    # Pass the emails to the template to display
-
-    # Display the email metadata
-    return render_template("welcome.html", emails=emails)
-
-
 # Convert credentials to a dictionary for session storage
 def creds_to_dict(creds):
     return {
@@ -158,9 +66,6 @@ def creds_to_dict(creds):
         "client_secret": creds.client_secret,
         "scopes": creds.scopes,
     }
-
-
-# Routes for task management
 
 
 # Route to display all tasks
@@ -207,7 +112,7 @@ def edit_task(task_id):
 
 
 # Route to delete a task
-@app.route("tasks/<int:task_id/delete", methods=["POST"])
+@app.route("/tasks/<int:task_id>/delete", methods=["POST"])
 def delete_task(task_id):
     task = Task.query.get_or_404(task_id)
     db.session.delete(task)
@@ -264,29 +169,29 @@ def analyze_email_with_openai(email):
         },
     ]
 
-    response = openai.ChatCompletion.create(
-        model="gpt-3.5-turbo",
-        messages=messages,
-        max_tokens=100,
-        temperature=0.5,
-    )
+    #response = openai.ChatCompletion.create(
+    #    model="gpt-3.5-turbo",
+    #    messages=messages,
+    #    max_tokens=100,
+    #    temperature=0.5,
+    #)
 
-    result = response.choices[0].message["content"].strip()
+    #result = response.choices[0].message["content"].strip()
 
-    if result.startswith("Task:"):
-        task_description = result.replace("Task: ", "")
+    #if result.startswith("Task:"):
+    #    task_description = result.replace("Task: ", "")
 
         # Create a new task and add it to the database
-        new_task = Task(
-            title=email.subject,
-            description=task_description,
-            due_date=None,  # Later: Check and keep track the due date of the task
-        )
+    #    new_task = Task(
+    #        title=email.subject,
+    #        description=task_description,
+    #        due_date=None,  # Later: Check and keep track the due date of the task
+    #    )
 
-        db.session.add(new_task)
-        db.session.commit()
+    #    db.session.add(new_task)
+    #    db.session.commit()
 
-        return new_task
+    #    return new_task
 
 
 # Run the Flask app
