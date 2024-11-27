@@ -12,6 +12,7 @@ from models.task_model import Task
 from datetime import timedelta
 from extensions import db  # Import db from extensions
 from routes.auth_routes import auth_bp  # Import the Blueprint
+# from routes.emails_routes import emails_bp
 
 app = Flask(__name__)
 app.secret_key = os.urandom(24)  # Secret key for session management
@@ -35,8 +36,9 @@ SCOPES = ["https://www.googleapis.com/auth/gmail.readonly"]
 # Initialize the SQLAlchemy object
 db.init_app(app)
 
-# Register the Blueprint
+# Register the Blueprints
 app.register_blueprint(auth_bp, url_prefix="/auth")
+# app.register_blueprint(emails_bp, url_prefix="/emails")
 
 # Index route: Checks if the user is authenticated
 @app.route("/")

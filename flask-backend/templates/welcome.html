@@ -25,8 +25,8 @@
         }
 
         main {
-            background: white;
             padding: 20px;
+            background: white;
         }
 
         h1 {
@@ -39,6 +39,35 @@
         p {
             text-align: center;
             margin-bottom: 30px;
+        }
+
+        .filter-form {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 20px;
+        }
+
+        .filter-form input {
+            padding: 8px;
+            font-size: 14px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            margin-right: 10px;
+            width: 200px;
+        }
+
+        .filter-form button {
+            padding: 8px 12px;
+            font-size: 14px;
+            background-color: #4caf50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .filter-form button:hover {
+            background-color: #45a049;
         }
 
         .email-grid {
@@ -93,19 +122,31 @@
 
 <body>
     <header>
-        Welcome to Amazing Email Organizer!
+        Welcome to Amazing Email Organizer! (Debug Version)
     </header>
     <main>
         <h1>Recent Emails</h1>
         <p>Here are some of the most recent emails in your inbox:</p>
+
+        <!-- Filter Form -->
+        <form class="filter-form" action="{{ url_for('auth.welcome') }}" method="get">
+            <input type="text" name="sender" placeholder="Enter sender name" required>
+            <button type="submit">Filter</button>
+        </form>
+
+        <!-- Email Grid -->
         <div class="email-grid">
-            {% for email in emails %}
-            <div class="email-card">
-                <div class="subject">{{ email.subject }}</div>
-                <div class="sender"><strong>Sender:</strong> {{ email.sender }}</div>
-                <div class="snippet"><strong>Snippet:</strong> {{ email.snippet }}</div>
-            </div>
-            {% endfor %}
+            {% if emails %}
+                {% for email in emails %}
+                <div class="email-card">
+                    <div class="subject">{{ email.subject }}</div>
+                    <div class="sender"><strong>Sender:</strong> {{ email.sender }}</div>
+                    <div class="snippet"><strong>Snippet:</strong> {{ email.snippet }}</div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <p style="text-align: center; color: #999;">No emails found.</p>
+            {% endif %}
         </div>
     </main>
     <footer>

@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Email List</title>
+</head>
+<body>
+    <header>
+        <h1>Email List</h1>
+    </header>
+
+    <!-- Search Form -->
+    
+
+    <!-- Email List -->
+    <ul>
+        {% for email in emails %}
+        <li>
+            <strong>Subject:</strong> {{ email.subject }}<br>
+            <strong>Sender:</strong> {{ email.sender }}<br>
+            <strong>Snippet:</strong> {{ email.snippet }}
+        </li>
+        {% endfor %}
+    </ul>
+</body>
+</html>

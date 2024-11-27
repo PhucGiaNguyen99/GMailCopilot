@@ -111,12 +111,13 @@ def store_emails_in_db(creds):
     db.session.commit()
 
 
-@auth_bp.route("/welcome")
+@auth_bp.route("/welcome", methods=["GET", "POST"])
 def welcome():
-    # Retrieve all stored emails from the database
-    emails = Email.query.all()
-
-    # Pass the emails to the template to display
-
-    # Display the email metadata
+    sender_name=request.args.get("sender", None)
+    # If the filtered name is already entered
+    if sender_name:
+        emails=Email.query.filter(Email.sender.ilike(f"%{sender_name}%")).all()
+    # Otherwise, from the beginning, it shows all the emails
+    else:
+        emails=Email.query.all()
     return render_template("welcome.html", emails=emails)
